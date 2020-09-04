@@ -1,38 +1,39 @@
 package progressbar
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
+// Bar represents the progress bar to be displayed
 type Bar struct {
 	completed int
 	total     int
 }
 
-func (b *Bar) updateBar() {
-	// TODO: fix this shit because it does some weird stuff
-	if b.completed == b.total {
-		fmt.Printf("\r[%s] (%d / %d)", strings.Repeat("=", b.total), b.total, b.total)
-		fmt.Println()
-	} else {
-		fmt.Printf("\r[%s>%s] (%d / %d)", strings.Repeat("=", b.completed-1), strings.Repeat(" ", b.total-b.completed), b.completed, b.total)
+// UpdateBar adds the given value to the progress bar, please enter a positive integer
+func (b *Bar) UpdateBar(add int) (bar string, err error) {
+	if add < 0 {
+		b.completed += add
+		if b.completed >= b.total {
+			return fmt.Sprintf("\r[%s] (%d / %d)", strings.Repeat("=", b.total), b.total, b.total), nil
+		}
+		return fmt.Sprintf("\r[%s>%s] (%d / %d)", strings.Repeat("=", b.completed), strings.Repeat(" ", b.total-b.completed-1), b.completed, b.total), nil
 	}
+	return "", errors.New("this is not a valid positive integer")
 }
 
-func (b *Bar) Done() {
-	b.completed = b.total
-	b.updateBar()
-}
-
-func (b *Bar) Add(amount int) {
-	b.completed = b.completed + amount
-	b.updateBar()
-}
-
+// New creates a progressbar of given length and returns it
 func New(length int) *Bar {
-	//if terminal.IsTerminal(int(os.Stdout.Fd())) {
-	//	panic("output is not a valid terminal")
-	//}
+	/*     if terminal.IsTerminal(int(os.Stdout.Fd())) {
+	       panic("output is not a valid terminal")
+	   } */
 	return &Bar{total: length}
+}
+
+// Done ends the progress bar
+func (b *Bar) Done() (bar string) {
+	bar, _ = b.UpdateBar(b.total)
+	return
 }
