@@ -15,7 +15,7 @@ type Bar struct {
 func (b *Bar) UpdateBar(add uint32) (bar string) {
 	b.completed += int(add)
 	if b.completed >= b.total {
-		return fmt.Sprintf("\r[%s] (%d / %d)\n", strings.Repeat("=", b.total), b.total, b.total)
+		return fmt.Sprintf("\r[%s] (%d / %d)", strings.Repeat("=", b.total), b.total, b.total)
 	}
 	return fmt.Sprintf("\r[%s>%s] (%d / %d)", strings.Repeat("=", b.completed), strings.Repeat(" ", b.total-b.completed-1), b.completed, b.total)
 }
