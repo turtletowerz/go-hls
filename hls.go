@@ -15,13 +15,16 @@ import (
 	"sync"
 
 	"github.com/turtletowerz/go-hls/m3u8"
-	"github.com/turtletowerz/go-hls/progressbar"
 )
 
 var (
 	tempStorage    string = filepath.Join(os.TempDir(), "hls-go")
 	errNoKeyNeeded error  = fmt.Errorf("ERR-NO-KEY-NEEDED")
 )
+
+// ProgressFunc represents the function type
+// required to be passed to the SetProgressFunc method
+type ProgressFunc func(int, int) error
 
 // Downloader is the struct which contains
 // all of the information and methods to download
@@ -32,12 +35,13 @@ type Downloader struct {
 	keyCache map[int][]byte
 	index    []int
 	filename string
-	bar      *progressbar.Bar
 	complete int
+	total    int
+	progress ProgressFunc
 }
 
 func (d *Downloader) getKey(segment *m3u8.Segment) error {
-	// TODO: apparently there may be some cases where key isn't a url
+	// TODO: apparently there may be some cases where key isn't a url?
 	if segment.KeyIndex == -1 {
 		return errNoKeyNeeded
 	}
@@ -138,10 +142,10 @@ func (d *Downloader) downloadSegment(idx int) error {
 	if _, err := file.Write(respBytes); err != nil {
 		return fmt.Errorf("writing bytes to file: %w", err)
 	}
-	//d.bar.Add(1)
+
 	d.complete++
-	if d.complete%50 == 0 {
-		fmt.Printf("%d / %d segments downloaded\n", d.complete, d.m3u8.Count())
+	if d.progress != nil {
+		d.progress(d.complete, d.total)
 	}
 	return nil
 }
@@ -159,32 +163,6 @@ func (d *Downloader) nextSegment() (idx int) {
 
 func (d *Downloader) merge() error {
 	defer os.RemoveAll(tempStorage)
-	/*
-		concatStr := "concat:"
-
-		err := filepath.Walk(tempStorage, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			concatStr = concatStr + path + "|"
-			return nil
-		})
-
-		concatStr = concatStr[:len(concatStr)-1]
-
-		if err != nil {
-			return fmt.Errorf("walking through files: %w", err)
-		}
-
-		cmd := exec.Command("ffmpeg", "-i", fmt.Sprintf("%q", concatStr), "-c", "copy", "-y", d.filename)
-		//"-metadata", `encoding_tool="no_variable_data"`, "-y", d.filename)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stdout
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("error running command")
-		}
-	*/
-	fmt.Println("Merging segments...")
 	fpath := filepath.Join(tempStorage, "list.txt")
 	file, err := os.Create(fpath)
 	if err != nil {
@@ -235,12 +213,17 @@ func (d *Downloader) Download(channels int) error {
 	}
 
 	wg.Wait()
-	//d.bar.Done()
 
 	if err := d.merge(); err != nil {
 		return fmt.Errorf("merging files: %w", err)
 	}
 	return nil
+}
+
+// SetProgressFunc assigns a function that gets
+// called after every new segment that is downloaded
+func (d *Downloader) SetProgressFunc(f ProgressFunc) {
+	d.progress = f
 }
 
 // New creates a new downloader for the user to download content with
@@ -273,15 +256,13 @@ func New(client *http.Client, path, filename string) (*Downloader, error) {
 	media := playlist.(*m3u8.MediaPlaylist)
 	seglen := media.Count()
 
-	//fmt.Printf("%v\n", media)
-
 	download := &Downloader{
 		client:   client,
 		m3u8:     media,
 		keyCache: map[int][]byte{},
 		index:    make([]int, seglen),
 		filename: filename,
-		bar:      progressbar.New(seglen),
+		total:    seglen,
 	}
 
 	for i := 0; i < seglen; i++ {

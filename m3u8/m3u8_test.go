@@ -1,23 +1,67 @@
 package m3u8
 
 import (
+	"bytes"
+	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-// TODO: fork testify project and make an assert-only package to use for testing
 // got most of these tests from https://github.com/globocom/m3u8/blob/master/tests/playlists.py
 // TODO: give proper credit for above comment
+
+// Stolen from https://github.com/stretchr/testify
+func objectsAreEqual(expected, actual interface{}) bool {
+	if expected == nil || actual == nil {
+		return expected == actual
+	}
+
+	exp, ok := expected.([]byte)
+	if !ok {
+		return reflect.DeepEqual(expected, actual)
+	}
+
+	act, ok := actual.([]byte)
+	if !ok {
+		return false
+	}
+
+	if exp == nil || act == nil {
+		return exp == nil && act == nil
+	}
+	return bytes.Equal(exp, act)
+}
+
+func equalValues(expected, actual interface{}) bool {
+	if objectsAreEqual(expected, actual) {
+		return true
+	}
+
+	actualType := reflect.TypeOf(actual)
+	if actualType == nil {
+		return false
+	}
+
+	expectedValue := reflect.ValueOf(expected)
+	if expectedValue.IsValid() && expectedValue.Type().ConvertibleTo(actualType) {
+		return reflect.DeepEqual(expectedValue.Convert(actualType).Interface(), actual)
+	}
+	return false
+}
+
+func assertEqual(t *testing.T, exp interface{}, act interface{}) {
+	if !equalValues(exp, act) {
+		t.Errorf("Not equal values\n\tExpected:%v\n\tGot:%v", exp, act)
+	}
+}
 
 func makeMediaPlaylist(str string, count int, t *testing.T) *MediaPlaylist {
 	playlist, err := DecodeReader(strings.NewReader(str))
 	if err != nil {
 		t.Fatalf("Error decoding playlist: " + err.Error())
 	}
-	assert.Equal(t, playlist.Type(), TypeMedia)
-	assert.Equal(t, playlist.Count(), count)
+	assertEqual(t, playlist.Type(), TypeMedia)
+	assertEqual(t, playlist.Count(), count)
 	return playlist.(*MediaPlaylist)
 }
 
@@ -31,9 +75,9 @@ func TestSimpleMediaPlaylist(t *testing.T) {
 	`, 1, t)
 
 	seg := playlist.Segments[0]
-	assert.EqualValues(t, playlist.TargetDuration, 5220)
-	assert.EqualValues(t, seg.Duration, 5220)
-	assert.Equal(t, seg.URI, "http://media.example.com/entire.ts")
+	assertEqual(t, playlist.TargetDuration, 5220)
+	assertEqual(t, seg.Duration, 5220)
+	assertEqual(t, seg.URI, "http://media.example.com/entire.ts")
 }
 
 func TestMediaPlaylistShortDuration(t *testing.T) {
@@ -49,19 +93,19 @@ func TestMediaPlaylistShortDuration(t *testing.T) {
 		#EXT-X-ENDLIST	
 	`, 3, t)
 
-	assert.EqualValues(t, playlist.TargetDuration, 5220)
+	assertEqual(t, playlist.TargetDuration, 5220)
 
 	seg1 := playlist.Segments[0]
-	assert.EqualValues(t, seg1.Duration, 5220)
-	assert.Equal(t, seg1.URI, "http://media.example.com/entire1.ts")
+	assertEqual(t, seg1.Duration, 5220)
+	assertEqual(t, seg1.URI, "http://media.example.com/entire1.ts")
 
 	seg2 := playlist.Segments[1]
-	assert.EqualValues(t, seg2.Duration, 5218.5)
-	assert.Equal(t, seg2.URI, "http://media.example.com/entire2.ts")
+	assertEqual(t, seg2.Duration, 5218.5)
+	assertEqual(t, seg2.URI, "http://media.example.com/entire2.ts")
 
 	seg3 := playlist.Segments[2]
-	assert.EqualValues(t, seg3.Duration, float32(0.000011))
-	assert.Equal(t, seg3.URI, "http://media.example.com/entire3.ts")
+	assertEqual(t, seg3.Duration, float32(0.000011))
+	assertEqual(t, seg3.URI, "http://media.example.com/entire3.ts")
 }
 
 func TestMediaPlaylistNegativeOffset(t *testing.T) {
@@ -74,12 +118,12 @@ func TestMediaPlaylistNegativeOffset(t *testing.T) {
 		#EXT-X-ENDLIST
 	`, 1, t)
 
-	assert.EqualValues(t, playlist.TargetDuration, 5220)
-	assert.EqualValues(t, playlist.TimeOffset, -2.0)
+	assertEqual(t, playlist.TargetDuration, 5220)
+	assertEqual(t, playlist.TimeOffset, -2.0)
 
 	seg := playlist.Segments[0]
-	assert.EqualValues(t, seg.Duration, 5220)
-	assert.Equal(t, seg.URI, "http://media.example.com/entire.ts")
+	assertEqual(t, seg.Duration, 5220)
+	assertEqual(t, seg.URI, "http://media.example.com/entire.ts")
 }
 
 func TestMediaPlaylistStartPrecise(t *testing.T) {
@@ -92,13 +136,13 @@ func TestMediaPlaylistStartPrecise(t *testing.T) {
 		#EXT-X-ENDLIST
 	`, 1, t)
 
-	assert.EqualValues(t, playlist.TargetDuration, 5220)
-	assert.EqualValues(t, playlist.TimeOffset, 10.5)
-	assert.Equal(t, playlist.Precise, true)
+	assertEqual(t, playlist.TargetDuration, 5220)
+	assertEqual(t, playlist.TimeOffset, 10.5)
+	assertEqual(t, playlist.Precise, true)
 
 	seg := playlist.Segments[0]
-	assert.EqualValues(t, seg.Duration, 5220)
-	assert.Equal(t, seg.URI, "http://media.example.com/entire.ts")
+	assertEqual(t, seg.Duration, 5220)
+	assertEqual(t, seg.URI, "http://media.example.com/entire.ts")
 }
 
 func TestMediaPlaylistEncryptedSegments(t *testing.T) {
@@ -115,12 +159,11 @@ func TestMediaPlaylistEncryptedSegments(t *testing.T) {
 		http://media.example.com/fileSequence52-3.ts
 	`, 3, t)
 
-	assert := assert.New(t)
-	assert.EqualValues(playlist.MediaSequence, 7794)
-	assert.EqualValues(playlist.TargetDuration, 15)
-	assert.Equal(len(playlist.Keys), 1)
-	assert.Equal(playlist.Keys[0].Method, "AES-128")
-	assert.Equal(playlist.Keys[0].URI, "https://priv.example.com/key.php?r=52")
+	assertEqual(t, playlist.MediaSequence, 7794)
+	assertEqual(t, playlist.TargetDuration, 15)
+	assertEqual(t, len(playlist.Keys), 1)
+	assertEqual(t, playlist.Keys[0].Method, "AES-128")
+	assertEqual(t, playlist.Keys[0].URI, "https://priv.example.com/key.php?r=52")
 
 	segments := []Segment{
 		{Duration: 15, KeyIndex: 0, URI: "http://media.example.com/fileSequence52-1.ts"},
@@ -129,7 +172,7 @@ func TestMediaPlaylistEncryptedSegments(t *testing.T) {
 	}
 
 	for i, seg := range segments {
-		assert.EqualValues(playlist.Segments[i], seg)
+		assertEqual(t, playlist.Segments[i], seg)
 	}
 }
 
@@ -138,8 +181,8 @@ func makeMasterPlaylist(str string, count int, t *testing.T) *MasterPlaylist {
 	if err != nil {
 		t.Fatalf("Error decoding playlist: " + err.Error())
 	}
-	assert.Equal(t, playlist.Type(), TypeMaster)
-	assert.Equal(t, playlist.Count(), count)
+	assertEqual(t, playlist.Type(), TypeMaster)
+	assertEqual(t, playlist.Count(), count)
 	return playlist.(*MasterPlaylist)
 }
 
@@ -164,7 +207,7 @@ func TestMasterPlaylistSimple(t *testing.T) {
 	}
 
 	for i, variant := range variants {
-		assert.EqualValues(t, playlist.Variants[i], variant)
+		assertEqual(t, playlist.Variants[i], variant)
 	}
 }
 
@@ -183,7 +226,7 @@ func TestMasterPlaylistCCVideoAudioSubs(t *testing.T) {
 	}
 
 	for i, variant := range variants {
-		assert.EqualValues(t, playlist.Variants[i], variant)
+		assertEqual(t, playlist.Variants[i], variant)
 	}
 }
 
@@ -208,6 +251,6 @@ func TestMasterPlaylistAvgBandwidth(t *testing.T) {
 	}
 
 	for i, variant := range variants {
-		assert.EqualValues(t, playlist.Variants[i], variant)
+		assertEqual(t, playlist.Variants[i], variant)
 	}
 }
