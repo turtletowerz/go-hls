@@ -54,25 +54,13 @@ const (
 	insteamRegex string = `"(CC[1-4]|SERVICE[1-5][0-9]?|SERVICE6[0-3])"`
 )
 
-// Count returns the total number
-// of segments in a MasterPlaylist
-func (ma *MasterPlaylist) Count() int {
-	return len(ma.Variants)
-}
-
 // Type returns master playlist type
-func (ma *MasterPlaylist) Type() int {
+func (m *MasterPlaylist) Type() int {
 	return TypeMaster
 }
 
-// Count returns the total number
-// of segments in a MediaPlaylist
-func (me *MediaPlaylist) Count() int {
-	return len(me.Segments)
-}
-
 // Type returns media playlist type
-func (me *MediaPlaylist) Type() int {
+func (m *MediaPlaylist) Type() int {
 	return TypeMedia
 }
 
@@ -253,6 +241,7 @@ func parseMediaPlaylist(lines []string) (playlist *MediaPlaylist, err error) {
 		err = fmt.Errorf("EXT-X-TARGETDURATION is a required field, but is missing")
 		return
 	}
+	playlist.SegmentCount = len(playlist.Segments)
 	return
 }
 
@@ -510,6 +499,7 @@ func parseMasterPlaylist(lines []string) (playlist *MasterPlaylist, err error) {
 			}
 		}
 	}
+	playlist.VariantCount = len(playlist.Variants) + len(playlist.IVariants)
 	return
 }
 

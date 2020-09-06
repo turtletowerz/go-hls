@@ -61,7 +61,7 @@ func makeMediaPlaylist(str string, count int, t *testing.T) *MediaPlaylist {
 		t.Fatalf("Error decoding playlist: " + err.Error())
 	}
 	assertEqual(t, playlist.Type(), TypeMedia)
-	assertEqual(t, playlist.Count(), count)
+	assertEqual(t, playlist.(*MediaPlaylist).SegmentCount, count)
 	return playlist.(*MediaPlaylist)
 }
 
@@ -182,7 +182,7 @@ func makeMasterPlaylist(str string, count int, t *testing.T) *MasterPlaylist {
 		t.Fatalf("Error decoding playlist: " + err.Error())
 	}
 	assertEqual(t, playlist.Type(), TypeMaster)
-	assertEqual(t, playlist.Count(), count)
+	assertEqual(t, playlist.(*MasterPlaylist).VariantCount, count)
 	return playlist.(*MasterPlaylist)
 }
 

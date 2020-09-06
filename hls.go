@@ -36,7 +36,6 @@ type Downloader struct {
 	index    []int
 	filename string
 	complete int
-	total    int
 	progress ProgressFunc
 }
 
@@ -74,10 +73,7 @@ func (d *Downloader) getKey(segment *m3u8.Segment) error {
 }
 
 func (d *Downloader) downloadSegment(idx int) error {
-	d.Lock() // is this process really necessary?
 	segment := d.m3u8.Segments[idx]
-	d.Unlock()
-
 	resp, err := d.client.Get(segment.URI)
 	if err != nil {
 		return fmt.Errorf("getting segment uri: %w", err)
@@ -102,13 +98,11 @@ func (d *Downloader) downloadSegment(idx int) error {
 
 	if keyErr != errNoKeyNeeded {
 		segKey := d.m3u8.Keys[segment.KeyIndex]
-		keyBytes := d.keyCache[segment.KeyIndex]
-
 		if len(respBytes)%aes.BlockSize != 0 {
 			return fmt.Errorf("data is not a valid multiple of aes block size")
 		}
 
-		block, err := aes.NewCipher(keyBytes)
+		block, err := aes.NewCipher(d.keyCache[segment.KeyIndex])
 		if err != nil {
 			return fmt.Errorf("creating aes cipher: %w", err)
 		}
@@ -121,16 +115,13 @@ func (d *Downloader) downloadSegment(idx int) error {
 		length := len(respBytes)
 		data := make([]byte, length)
 		cipher.NewCBCDecrypter(block, iv).CryptBlocks(data, respBytes)
-		//mode := cipher.NewCBCDecrypter(block, iv)
-		//mode.CryptBlocks(data, respBytes)
 
 		// idk if this is specific to VRV/Crunchyroll or not....
 		respBytes = data[:(length - int(data[length-1]))]
 	}
 
 	// Credits to github.com/oopsguy/m3u8 for this
-	// Some TS files do not start with SyncByte 0x47, they can not be played after merging,
-	// Need to remove the bytes before the SyncByte 0x47(71).
+	// Remove all bytes before SyncByte to TS files can be merged
 	syncByte := uint8(71) // 0x47
 	for j := 0; j < len(respBytes); j++ {
 		if respBytes[j] == syncByte {
@@ -140,12 +131,12 @@ func (d *Downloader) downloadSegment(idx int) error {
 	}
 
 	if _, err := file.Write(respBytes); err != nil {
-		return fmt.Errorf("writing bytes to file: %w", err)
+		return fmt.Errorf("writing segment to file: %w", err)
 	}
 
 	d.complete++
 	if d.progress != nil {
-		d.progress(d.complete, d.total)
+		d.progress(d.complete, d.m3u8.SegmentCount)
 	}
 	return nil
 }
@@ -162,7 +153,6 @@ func (d *Downloader) nextSegment() (idx int) {
 }
 
 func (d *Downloader) merge() error {
-	defer os.RemoveAll(tempStorage)
 	fpath := filepath.Join(tempStorage, "list.txt")
 	file, err := os.Create(fpath)
 	if err != nil {
@@ -172,7 +162,7 @@ func (d *Downloader) merge() error {
 	defer file.Close()
 
 	w := bufio.NewWriter(file)
-	for i := 0; i < d.m3u8.Count(); i++ {
+	for i := 0; i < d.m3u8.SegmentCount; i++ {
 		w.WriteString(fmt.Sprintf("file '%s'\n", filepath.Join(tempStorage, strconv.Itoa(i)+".ts")))
 	}
 	w.Flush()
@@ -188,7 +178,8 @@ func (d *Downloader) merge() error {
 }
 
 func (d *Downloader) Download(channels int) error {
-	// TODO: add some sort of error channel so if the segment fails it gets added to the error chan, if the chan is maxed out then return an error
+	defer os.RemoveAll(tempStorage)
+	// TODO: add some sort of error channel so if the segment fails it gets added to the error channel, if the chan is maxed out then return an error
 	var wg sync.WaitGroup
 
 	for i := 0; i < channels; i++ {
@@ -250,22 +241,20 @@ func New(client *http.Client, path, filename string) (*Downloader, error) {
 	}
 
 	if playlist.Type() != m3u8.TypeMedia {
-		return nil, fmt.Errorf("Error: Playlist type MUST be media")
+		return nil, fmt.Errorf("playlist type MUST be media")
 	}
 
 	media := playlist.(*m3u8.MediaPlaylist)
-	seglen := media.Count()
 
 	download := &Downloader{
 		client:   client,
 		m3u8:     media,
 		keyCache: map[int][]byte{},
-		index:    make([]int, seglen),
+		index:    make([]int, media.SegmentCount),
 		filename: filename,
-		total:    seglen,
 	}
 
-	for i := 0; i < seglen; i++ {
+	for i := 0; i < media.SegmentCount; i++ {
 		download.index[i] = i
 	}
 	return download, nil

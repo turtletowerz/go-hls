@@ -5,7 +5,6 @@ package m3u8
 // Playlist represents an interface that
 // MasterPlaylist and MediaPlaylist fall under
 type Playlist interface {
-	Count() int
 	Type() int
 	//Decode(string) error
 }
@@ -44,6 +43,7 @@ type MediaPlaylist struct { // 4.3.3
 	TimeOffset       float32
 	Precise          bool
 	Version          int
+	SegmentCount     int
 }
 
 // Key contains information for
@@ -114,13 +114,14 @@ type Rendition struct { // 4.3.4.1
 
 // MasterPlaylist represents a Master Playlist M3U8 file
 type MasterPlaylist struct { // 4.3.4
-	Variants    []Variant
-	IVariants   []IVariant
-	SessionData []SessionData //A Playlist MAY contain multiple EXT-X-SESSION-DATA tags with the same DATA-ID attribute
-	SessionKey  *Key
-	Renditions  []Rendition
-	Independent bool
-	TimeOffset  *float32
-	Precise     bool
-	Version     int
+	Variants     []Variant
+	IVariants    []IVariant
+	SessionData  []SessionData //A Playlist MAY contain multiple EXT-X-SESSION-DATA tags with the same DATA-ID attribute
+	SessionKey   *Key
+	Renditions   []Rendition
+	Independent  bool
+	TimeOffset   *float32
+	Precise      bool
+	Version      int
+	VariantCount int
 }
