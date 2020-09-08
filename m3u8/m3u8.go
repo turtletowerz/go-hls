@@ -330,7 +330,7 @@ func parseMasterPlaylist(lines []string) (playlist *MasterPlaylist, err error) {
 							err = fmt.Errorf("invalid instream id value %q", value)
 							return
 						}
-						rend.InstreamID = &match[1]
+						rend.InstreamID = match[1]
 					case "CHARACTERISTICS":
 						// TODO: Properly parse this (it's comma-separated)
 						_, err = fmt.Sscanf(value, "%q", &rend.Characteristics)

@@ -12,7 +12,7 @@ type Playlist interface {
 // Map represents
 type Map struct { // 4.3.2.5
 	URI       string
-	ByteRange *string
+	ByteRange string
 }
 
 // Segment represents an individual
@@ -69,7 +69,7 @@ type IVariant struct { // 4.3.4.3
 	Bandwidth    int64
 	BandwidthAvg int64
 	Codecs       string
-	Resolution   *Resolution
+	Resolution   Resolution
 	Video        string
 	HDCPLevel    string
 }
@@ -99,17 +99,17 @@ type SessionData struct { // 4.3.4.4
 // of the same content in the Master Playlist
 type Rendition struct { // 4.3.4.1
 	Type            string
-	URI             *string
+	URI             string
 	GroupID         string
-	Language        *string
-	AssocLanguage   *string
+	Language        string
+	AssocLanguage   string
 	Name            string
 	Default         string // defaults to no
 	AutoSelect      string // defaults to no
 	Forced          string // defaults to no
-	InstreamID      *string
-	Characteristics *string
-	Channels        *string
+	InstreamID      string
+	Characteristics string
+	Channels        string
 }
 
 // MasterPlaylist represents a Master Playlist M3U8 file

@@ -246,6 +246,10 @@ func New(client *http.Client, path, filename string) (*Downloader, error) {
 
 	media := playlist.(*m3u8.MediaPlaylist)
 
+	if client == nil { // If nil, create an empty http client to use
+		client = &http.Client{}
+	}
+
 	download := &Downloader{
 		client:   client,
 		m3u8:     media,
