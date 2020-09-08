@@ -35,6 +35,7 @@ type Downloader struct {
 	keyCache map[int][]byte
 	index    []int
 	filename string
+	base     string
 	complete int
 	progress ProgressFunc
 }
@@ -74,6 +75,10 @@ func (d *Downloader) getKey(segment *m3u8.Segment) error {
 
 func (d *Downloader) downloadSegment(idx int) error {
 	segment := d.m3u8.Segments[idx]
+	if !strings.HasPrefix(segment.URI, "http") {
+		segment.URI = d.base + segment.URI
+	}
+
 	resp, err := d.client.Get(segment.URI)
 	if err != nil {
 		return fmt.Errorf("getting segment uri: %w", err)
@@ -136,7 +141,9 @@ func (d *Downloader) downloadSegment(idx int) error {
 
 	d.complete++
 	if d.progress != nil {
-		d.progress(d.complete, d.m3u8.SegmentCount)
+		if err := d.progress(d.complete, d.m3u8.SegmentCount); err != nil {
+			return fmt.Errorf("progress func error: %w", err)
+		}
 	}
 	return nil
 }
@@ -217,6 +224,12 @@ func (d *Downloader) SetProgressFunc(f ProgressFunc) {
 	d.progress = f
 }
 
+// SetBaseURL sets an optional Base URL that will be
+// used if segments are paths as opposed to proper URLS
+func (d *Downloader) SetBaseURL(base string) {
+	d.base = base
+}
+
 // New creates a new downloader for the user to download content with
 func New(client *http.Client, path, filename string) (*Downloader, error) {
 	os.RemoveAll(tempStorage)
@@ -238,6 +251,10 @@ func New(client *http.Client, path, filename string) (*Downloader, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("decoding m3u8: %w", err)
+	}
+
+	if playlist == nil {
+		return nil, fmt.Errorf("no playlist (usually means you passed a bad url to the New function")
 	}
 
 	if playlist.Type() != m3u8.TypeMedia {

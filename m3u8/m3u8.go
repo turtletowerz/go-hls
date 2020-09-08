@@ -44,7 +44,7 @@ const (
 
 	// Defined in Section 4.2
 	// end me please
-	attrRegex string = `([A-Z0-9-]+)=(0[xX][0-9A-F]+|[0-9\.-]+|[A-Z0-9-]+|"?[^\x0A\x0D\x22]+"?)`
+	attrRegex string = `([A-Z0-9-]+)=(0[xX][0-9A-F]+|[0-9\.-x]+|[A-Z0-9-]+|"?[^\x0A\x0D\x22]+"?)`
 
 	// Longer version for comparison ...
 	// ([A-Z0-9-]+)=(0[xX][0-9A-F]+|[0-9\.-]+|[0-9\.]+|[0-9]+|[A-Z0-9-]+|"?[^\x0A\x0D\x22\x2C]+"?)
@@ -429,15 +429,15 @@ func parseMasterPlaylist(lines []string) (playlist *MasterPlaylist, err error) {
 						_, err = fmt.Sscanf(value, "%q", &variant.URI)
 					}
 
-					if variant.Bandwidth == 0 || variant.URI == "" {
-						err = fmt.Errorf("IVariant stream MUST include uri and bandwidth information")
-						return
-					}
-
 					if err != nil {
 						err = fmt.Errorf("error parsing IVariant attribute %s: %w", attrib, err)
 						return
 					}
+				}
+
+				if variant.Bandwidth == 0 || variant.URI == "" {
+					err = fmt.Errorf("IVariant stream MUST include uri and bandwidth information")
+					return
 				}
 				playlist.IVariants = append(playlist.IVariants, *variant)
 			case "EXT-X-SESSION-DATA": // 4.3.4.4
