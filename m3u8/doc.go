@@ -2,8 +2,6 @@ package m3u8
 
 /*
 All Section definitions and references are from RFC 8216 Protocol Version 7
-If you want to use Protocal Version 3, check the rfc-v3/m3u8.go file
-
 
 An AttributeValue is one of the following:
 
